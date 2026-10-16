@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.DS_Store
+# keep real organiser data out of the repo
+data/private/
+data/*.private.csv
