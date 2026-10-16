@@ -51,7 +51,10 @@ class EventPlan:
         if self.capacity < 1:
             raise ValueError("capacity must be at least 1")
         for label in ("ticket_price", "fixed_costs", "per_attendee_cost", "sponsorship"):
-            if getattr(self, label) < 0:
+            value = getattr(self, label)
+            if not math.isfinite(value):
+                raise ValueError(f"{label} must be a finite number")
+            if value < 0:
                 raise ValueError(f"{label} cannot be negative")
         if self.turnout is not None:
             t = self.turnout
