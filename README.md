@@ -45,8 +45,8 @@ Plan B breaks even at a lower share of its venue, but Plan A loses far less if t
 ## Run it locally
 
 ```bash
-git clone https://github.com/boutsoniya/GigSense1.git
-cd GigSense1
+git clone https://github.com/boutsoniya/GigSense.git
+cd GigSense
 pip install -r requirements.txt
 python -m uvicorn gigsense.api:app --reload
 # open http://127.0.0.1:8000
