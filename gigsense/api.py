@@ -24,17 +24,17 @@ app = FastAPI(
 
 
 class TurnoutIn(BaseModel):
-    low: int = Field(ge=0)
-    expected: int = Field(ge=0)
-    high: int = Field(ge=0)
+    low: int = Field(ge=0, allow_inf_nan=False)
+    expected: int = Field(ge=0, allow_inf_nan=False)
+    high: int = Field(ge=0, allow_inf_nan=False)
 
 
 class PlanIn(BaseModel):
     name: str = Field(default="Plan", max_length=60)
     capacity: int = Field(ge=1)
-    ticket_price: float = Field(ge=0)
-    fixed_costs: float = Field(ge=0)
-    per_attendee_cost: float = Field(default=0, ge=0)
+    ticket_price: float = Field(ge=0, allow_inf_nan=False)
+    fixed_costs: float = Field(ge=0, allow_inf_nan=False)
+    per_attendee_cost: float = Field(default=0, ge=0, allow_inf_nan=False)
     sponsorship: float = Field(default=0, ge=0)
     turnout: Optional[TurnoutIn] = None
 
