@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GigSense</title>
+<style>
+  :root {
+    --bg: #faf9f7; --card: #ffffff; --ink: #1f1d1a; --muted: #6b665f; --line: #e4e0d9;
+    --accent: #b4491f; --good: #1d6b3b; --bad: #a3261c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16140f; --card: #1f1c16; --ink: #f1ede6; --muted: #a39d93; --line: #35312a;
+            --accent: #e08a5d; --good: #62c283; --bad: #f08075; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 1.7rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 8px; }
+  .banner { border: 1px solid var(--line); border-left: 4px solid var(--accent); background: var(--card);
+            padding: 10px 14px; border-radius: 8px; margin: 16px 0 24px; font-size: .92rem; color: var(--muted); }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-top: 10px; }
+  input[type=text], input[type=number] {
+    width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font: inherit; }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  fieldset { border: 0; padding: 0; margin: 14px 0 0; }
+  legend { font-size: .85rem; font-weight: 600; padding: 0; }
+  .toggle { display: flex; align-items: center; gap: 8px; margin: 16px 0; font-size: .95rem; }
+  button { background: var(--accent); color: #fff; border: 0; padding: 10px 18px; border-radius: 8px;
+           font: inherit; font-weight: 600; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #error { color: var(--bad); margin-top: 12px; min-height: 1.2em; }
+  .big { font-size: 1.9rem; font-weight: 700; line-height: 1.1; }
+  .stat { margin: 8px 0 12px; }
+  .stat small { display: block; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; margin: 8px 0; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .profit { color: var(--good); } .loss { color: var(--bad); }
+  ul { margin: 6px 0 0; padding-left: 18px; }
+  li { margin: 3px 0; }
+  details { margin-top: 10px; font-size: .9rem; }
+  summary { cursor: pointer; color: var(--muted); }
+  #results { margin-top: 24px; }
+  .obs { margin-bottom: 16px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>GigSense</h1>
+  <p class="sub">A decision simulator for small live-music events.</p>
+  <div class="banner">
+    <strong>Discovery-stage tool.</strong> Everything below is arithmetic on the numbers you enter.
+    Turnout scenarios are your assumptions, not predictions, and results are not financial advice.
+    The pre-filled values are <em>illustrative</em>, not real event data.
+  </div>
+
+  <form id="form" autocomplete="off">
+    <div class="grid" id="plans"></div>
+    <div class="toggle">
+      <input type="checkbox" id="useB" checked>
+      <label for="useB" style="margin:0;color:inherit">Compare with a second plan</label>
+    </div>
+    <button type="submit">Calculate</button>
+    <div id="error" role="alert"></div>
+  </form>
+
+  <section id="results" aria-live="polite"></section>
+</main>
+
+<script>
+const DEFAULTS = {
+  a: { name: "Plan A", capacity: 100, price: 400, venue: 12000, artist: 15000, sound: 5000, other: 0,
+       perAtt: 0, spons: 10000, low: 40, exp: 60, high: 90 },
+  b: { name: "Plan B", capacity: 200, price: 300, venue: 20000, artist: 15000, sound: 5000, other: 0,
+       perAtt: 0, spons: 10000, low: 40, exp: 90, high: 150 },
+};
+
+function planFormHTML(key, d) {
+  const f = (id, label, val, type = "number") =>
+    `<label for="${key}_${id}">${label}
+       <input type="${type}" id="${key}_${id}" value="${val}" ${type === "number" ? 'min="0" step="any"' : ""}>
+     </label>`;
+  return `
+  <div class="card" id="card_${key}">
+    <h2>${d.name}</h2>
+    ${f("name", "Plan name", d.name, "text")}
+    ${f("capacity", "Venue capacity (people)", d.capacity)}
+    ${f("price", "Ticket price", d.price)}
+    <fieldset><legend>Fixed costs</legend>
+      <div class="row">
+        ${f("venue", "Venue", d.venue)}
+        ${f("artist", "Artist fee", d.artist)}
+        ${f("sound", "Sound / tech", d.sound)}
+      </div>
+      ${f("other", "Other fixed costs", d.other)}
+    </fieldset>
+    ${f("perAtt", "Cost per attendee (optional)", d.perAtt)}
+    ${f("spons", "Sponsorship (optional)", d.spons)}
+    <fieldset><legend>Turnout assumptions (paid tickets)</legend>
+      <div class="row">
+        ${f("low", "Low", d.low)}
+        ${f("exp", "Expected", d.exp)}
+        ${f("high", "High", d.high)}
+      </div>
+    </fieldset>
+  </div>`;
+}
+
+document.getElementById("plans").innerHTML =
+  planFormHTML("a", DEFAULTS.a) + planFormHTML("b", DEFAULTS.b);
+
+const useB = document.getElementById("useB");
+useB.addEventListener("change", () =>
+  document.getElementById("card_b").classList.toggle("hidden", !useB.checked));
+
+const num = (id) => { const v = parseFloat(document.getElementById(id).value); return Number.isFinite(v) ? v : 0; };
+
+function readPlan(key) {
+  const fixed = num(key + "_venue") + num(key + "_artist") + num(key + "_sound") + num(key + "_other");
+  return {
+    name: document.getElementById(key + "_name").value || "Plan",
+    capacity: Math.round(num(key + "_capacity")),
+    ticket_price: num(key + "_price"),
+    fixed_costs: fixed,
+    per_attendee_cost: num(key + "_perAtt"),
+    sponsorship: num(key + "_spons"),
+    turnout: {
+      low: Math.round(num(key + "_low")),
+      expected: Math.round(num(key + "_exp")),
+      high: Math.round(num(key + "_high")),
+    },
+  };
+}
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+const money = (n) => (n < 0 ? "−" : "") + "₹" + fmt(Math.abs(n));
+
+function evalCard(ev) {
+  const be = ev.break_even_tickets;
+  const beText = be === null ? "Not reachable" : `${fmt(be)} tickets`;
+  const share = ev.break_even_share_of_capacity;
+  const shareText = share === null ? "" : `${Math.round(share * 100)}% of capacity (${fmt(ev.capacity)})`;
+  const rows = ev.scenarios.map((s) =>
+    `<tr><td>${esc(s.label)}</td><td class="num">${fmt(s.attendance)}</td>
+     <td class="num ${s.profit >= 0 ? "profit" : "loss"}">${money(s.profit)}</td></tr>`).join("");
+  return `
+  <div class="card">
+    <h2>${esc(ev.name)}</h2>
+    <div class="stat"><span class="big">${esc(beText)}</span><small>to break even · ${esc(shareText)}</small></div>
+    <div class="stat"><span class="big" style="font-size:1.2rem">${money(ev.upfront_cash)}</span>
+      <small>fixed costs to commit upfront</small></div>
+    <div class="stat"><span class="big" style="font-size:1.2rem" >${money(ev.max_profit_at_capacity)}</span>
+      <small>result if every seat is sold</small></div>
+    ${rows ? `<table><thead><tr><th>Scenario</th><th class="num">Tickets</th><th class="num">Result</th></tr></thead>
+      <tbody>${rows}</tbody></table>` : ""}
+    <ul>${ev.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>
+    <details><summary>Show the calculation</summary>
+      <ul>${ev.calculation.map((n) => `<li>${esc(n)}</li>`).join("")}</ul></details>
+    <details><summary>Assumptions behind these numbers</summary>
+      <ul>${ev.assumptions.map((n) => `<li>${esc(n)}</li>`).join("")}</ul></details>
+  </div>`;
+}
+
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = document.getElementById("error");
+  const out = document.getElementById("results");
+  err.textContent = "";
+  try {
+    let html;
+    if (useB.checked) {
+      const r = await fetch("/api/compare", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ a: readPlan("a"), b: readPlan("b") }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Please check the numbers you entered.");
+      html = `<div class="card obs"><h2>What the comparison shows</h2>
+        <ul>${data.observations.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div>
+        <div class="grid">${evalCard(data.a)}${evalCard(data.b)}</div>`;
+    } else {
+      const r = await fetch("/api/evaluate", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(readPlan("a")) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Please check the numbers you entered.");
+      html = `<div class="grid">${evalCard(data)}</div>`;
+    }
+    out.innerHTML = html;
+    out.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (ex) {
+    err.textContent = ex.message;
+  }
+});
+</script>
+</body>
+</html>
