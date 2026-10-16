@@ -118,3 +118,19 @@ def test_profit_at_rejects_out_of_range_attendance():
         profit_at(PLAN_A, 101)
     with pytest.raises(ValueError):
         profit_at(PLAN_A, -1)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("ticket_price", float("nan")),
+        ("fixed_costs", float("inf")),
+        ("per_attendee_cost", float("-inf")),
+        ("sponsorship", float("nan")),
+    ],
+)
+def test_non_finite_money_values_are_rejected(field, value):
+    kwargs = dict(name="x", capacity=10, ticket_price=100, fixed_costs=100)
+    kwargs[field] = value
+    with pytest.raises(ValueError, match="finite number"):
+        EventPlan(**kwargs)
