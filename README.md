@@ -42,6 +42,17 @@ Plan B breaks even at a lower share of its venue, but Plan A loses far less if t
 
 **Deliberately not included yet:** attendance forecasting and demand testing. Those only make sense once there is real, permissioned data.
 
+## Deploy a public demo (Render)
+
+This repository includes a `render.yaml` Blueprint for deploying the FastAPI app on Render. To create a live URL:
+
+1. Sign in to [Render](https://render.com/).
+2. Choose **New → Blueprint** and connect `boutsoniya/GigSense`.
+3. Review the service settings from `render.yaml` and create the service.
+4. Wait for the first deploy to finish, then open the Render URL. Check `/api/health` and use the calculator in the root page.
+
+The deployment is not live until you create it in your Render account. A free service may sleep when idle and take a short time to wake up.
+
 ## Run it locally
 
 ```bash
