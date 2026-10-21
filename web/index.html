@@ -178,27 +178,47 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   const out = document.getElementById("results");
   err.textContent = "";
   try {
-    let html;
-    if (useB.checked) {
-      const r = await fetch("/api/compare", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ a: readPlan("a"), b: readPlan("b") }) });
-      const data = await r.json();
-      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Please check the numbers you entered.");
-      html = `<div class="card obs"><h2>What the comparison shows</h2>
-        <ul>${data.observations.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div>
-        <div class="grid">${evalCard(data.a)}${evalCard(data.b)}</div>`;
-    } else {
-      const r = await fetch("/api/evaluate", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(readPlan("a")) });
-      const data = await r.json();
-      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Please check the numbers you entered.");
-      html = `<div class="grid">${evalCard(data)}</div>`;
+    const button = document.querySelector('#form button[type="submit"]');
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Calculating…";
+    const postJSON = async (url, payload) => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      let data;
+      try { data = await response.json(); }
+      catch { throw new Error("The calculator server returned an unreadable response. Please retry in a moment."); }
+      if (!response.ok) {
+        const detail = data?.detail;
+        const message = typeof detail === "string" ? detail :
+          Array.isArray(detail) ? detail.map(x => x.msg).join("; ") :
+          "Please check the numbers you entered.";
+        throw new Error(message);
+      }
+      return data;
+    };
+    try {
+      let html;
+      if (useB.checked) {
+        const data = await postJSON("/api/compare", { a: readPlan("a"), b: readPlan("b") });
+        html = `<div class="card obs"><h2>What the comparison shows</h2>
+          <ul>${(data.observations || []).map((o) => `<li>${esc(o)}</li>`).join("")}</ul></div>
+          <div class="grid">${evalCard(data.a)}${evalCard(data.b)}</div>`;
+      } else {
+        const data = await postJSON("/api/evaluate", readPlan("a"));
+        html = `<div class="grid">${evalCard(data)}</div>`;
+      }
+      out.innerHTML = html;
+      out.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (ex) {
+      err.textContent = ex?.message || "Calculation failed. Please check your inputs and try again.";
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel;
     }
-    out.innerHTML = html;
-    out.scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (ex) {
-    err.textContent = ex.message;
-  }
 });
 </script>
 </body>
